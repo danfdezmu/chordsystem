@@ -147,6 +147,10 @@ function formatChordHtml(chord: string): string {
     return formatNoteHtml(chord.slice(0, slash)) + '/' + formatNoteHtml(chord.slice(slash + 1));
 }
 
+function placedUnison(prefix: string, notes: string): string {
+    return ' '.repeat(prefix.length) + notes;
+}
+
 function renderMarkedLine(line: string, noteClass: string): string {
     const tokens = line.split(/(\s+)/);
     const colored = tokens
@@ -236,11 +240,11 @@ function renderBody(text: string, semitones: number, lyricsOnly = false): string
             continue;
         }
 
-        const writtenUnison = line.match(/^\s*\[(?:unisono|unísono)\]\s*\{([^}]*)\}\s*$/i);
+        const writtenUnison = line.match(/^(\s*\[(?:unisono|unísono)\]\s*\{)([^}]*)\}\s*$/i);
         if (writtenUnison) {
             pendingUnison = false;
-            if (!lyricsOnly && writtenUnison[1].trim() !== '') {
-                out.push(renderMarkedLine(writtenUnison[1], UNISON_CLASS));
+            if (!lyricsOnly && writtenUnison[2].trim() !== '') {
+                out.push(renderMarkedLine(placedUnison(writtenUnison[1], writtenUnison[2]), UNISON_CLASS));
             }
             continue;
         }
@@ -269,10 +273,10 @@ function renderBody(text: string, semitones: number, lyricsOnly = false): string
             continue;
         }
 
-        const inlineUnison = line.match(/^(\s*)\{unisono\}(.*)$/);
+        const inlineUnison = line.match(/^(\s*\{unisono\})(.*)$/);
         if (inlineUnison && inlineUnison[2].trim() !== '') {
             if (!lyricsOnly) {
-                out.push(renderMarkedLine(inlineUnison[2], UNISON_CLASS));
+                out.push(renderMarkedLine(placedUnison(inlineUnison[1], inlineUnison[2]), UNISON_CLASS));
             }
             continue;
         }
