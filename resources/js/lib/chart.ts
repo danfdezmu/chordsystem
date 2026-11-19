@@ -20,7 +20,7 @@ export function sectionHeader(line: string): string | null {
     }
 
     const label = match[1].trim();
-    if (/^(unisono|unísono)$/i.test(label)) {
+    if (/^(unisono|unísono)\*?$/i.test(label)) {
         return null;
     }
 
@@ -47,12 +47,32 @@ export function parseSections(text: string): ParsedSection[] {
     return result.filter((s) => s.body.trim() !== '' || s.label !== 'Sección');
 }
 
+export function sectionLabels(text: string): string[] {
+    const labels: string[] = [];
+    for (const section of parseSections(text)) {
+        if (section.label === 'Sección' || labels.includes(section.label)) {
+            continue;
+        }
+        labels.push(section.label);
+    }
+
+    return labels;
+}
+
 function normalizeLabel(s: string): string {
     return s.toLowerCase().replace(/[^a-z0-9áéíóúñ]/gi, '');
 }
 
+export function sectionName(label: string): string {
+    return label.replace(/\s*\*$/, '').trim();
+}
+
+export function isVariationPlay(label: string): boolean {
+    return /\*$/.test(label.trim());
+}
+
 export function findSection(sections: ParsedSection[], token: string): ParsedSection | undefined {
-    const t = normalizeLabel(token.replace(/[\[\]]/g, ''));
+    const t = normalizeLabel(sectionName(token).replace(/[\[\]]/g, ''));
     // alias support
     const aliases: Record<string, string> = {
         v1: 'verso1', v2: 'verso2', v3: 'verso3',
@@ -62,8 +82,8 @@ export function findSection(sections: ParsedSection[], token: string): ParsedSec
     return sections.find((s) => normalizeLabel(s.label) === key);
 }
 
-export function renderSection(body: string, semitones: number, lyricsOnly = false): string {
-    return renderBody(body, semitones, lyricsOnly);
+export function renderSection(body: string, semitones: number, lyricsOnly = false, variation = false): string {
+    return renderBody(body, semitones, lyricsOnly, variation);
 }
 
 const REPEAT_CLASS =
@@ -74,7 +94,7 @@ export function groupConsecutiveLabels(labels: string[]): { label: string; count
 
     for (const label of labels) {
         const last = groups[groups.length - 1];
-        if (last && normalizeLabel(last.label) === normalizeLabel(label)) {
+        if (last && playKey(last.label) === playKey(label)) {
             last.count += 1;
             continue;
         }
@@ -92,8 +112,15 @@ function repeatBadge(count: number): string {
     return `<span class="${REPEAT_CLASS}">x${count}</span>`;
 }
 
+function playKey(label: string): string {
+    return `${normalizeLabel(sectionName(label))}${isVariationPlay(label) ? '*' : ''}`;
+}
+
 function sectionBadge(label: string, count: number, index: number): string {
-    return `<div id="section-${index}" class="mt-4 mb-1 scroll-mt-20"><span class="inline-block rounded px-2 py-0.5 text-xs font-semibold ${sectionColorClass(label)}">${escapeHtml(label)}</span>${repeatBadge(count)}</div>`;
+    const name = sectionName(label);
+    const star = isVariationPlay(label) ? '<span class="ml-1 text-amber-600">*</span>' : '';
+
+    return `<div id="section-${index}" class="mt-4 mb-1 scroll-mt-20"><span class="inline-block rounded px-2 py-0.5 text-xs font-semibold ${sectionColorClass(name)}">${escapeHtml(name)}</span>${star}${repeatBadge(count)}</div>`;
 }
 
 export function sectionColorClass(label: string): string {
@@ -107,6 +134,31 @@ export function sectionColorClass(label: string): string {
     if (l.includes('interludio')) return 'bg-teal-500/15 text-teal-700 dark:text-teal-300';
     if (l.includes('espont')) return 'bg-rose-500/15 text-rose-700 dark:text-rose-300';
     return 'bg-primary/10 text-primary';
+}
+
+export function structureChipClass(label: string, variation = isVariationPlay(label)): string {
+    if (!variation) {
+        return sectionColorClass(label);
+    }
+
+    const name = sectionName(label).toLowerCase();
+    if (name.includes('intro')) return 'bg-fuchsia-600 text-white';
+    if (name.includes('verso') || name.includes('verse')) return 'bg-emerald-600 text-white';
+    if (name.includes('coro') || name.includes('chorus')) return 'bg-amber-600 text-white';
+    if (name.includes('puente') || name.includes('bridge')) return 'bg-purple-600 text-white';
+    if (name.includes('outro') || name.includes('final') || name.includes('ending')) return 'bg-slate-700 text-white';
+    if (name.includes('solo')) return 'bg-emerald-700 text-white';
+    if (name.includes('interludio')) return 'bg-teal-600 text-white';
+    if (name.includes('espont')) return 'bg-rose-600 text-white';
+
+    return 'bg-primary text-primary-foreground';
+}
+
+export function sectionHasVariation(body: string): boolean {
+    return body.split('\n').some((line) => {
+        const kind = musicKind(line);
+        return kind === 'var-chord' || kind === 'var-unison' || kind === 'mixed';
+    });
 }
 
 function raiseChordText(text: string): string {
@@ -182,26 +234,28 @@ function renderLyricLine(line: string): string {
     return `<div class="chart-line">${escapeHtml(text)}</div>`;
 }
 
-export function renderStructure(content: string, tokens: string[], semitones: number, lyricsOnly = false): string {
+export function renderStructure(content: string, tokens: string[], semitones: number, lyricsOnly = false, variation = false): string {
     const sections = parseSections(content);
     const groups = groupConsecutiveLabels(tokens);
     const blocks = groups.map((group, index) => {
         const section = findSection(sections, group.label);
         if (!section) {
-            return `<div id="section-${index}" class="mt-4 mb-1 scroll-mt-20"><span class="inline-block rounded px-2 py-0.5 text-xs font-semibold bg-rose-500/15 text-rose-700 dark:text-rose-300">${escapeHtml(group.label)} (no encontrado)</span></div>`;
+            return `<div id="section-${index}" class="mt-4 mb-1 scroll-mt-20"><span class="inline-block rounded px-2 py-0.5 text-xs font-semibold bg-rose-500/15 text-rose-700 dark:text-rose-300">${escapeHtml(sectionName(group.label))} (no encontrado)</span></div>`;
         }
 
-        return sectionBadge(group.label, group.count, index) + renderSection(section.body, semitones, lyricsOnly);
+        const useVariation = variation || isVariationPlay(group.label);
+
+        return sectionBadge(group.label, group.count, index) + renderSection(section.body, semitones, lyricsOnly, useVariation);
     });
 
-    return blocks.join('') || renderChart(content, semitones, lyricsOnly);
+    return blocks.join('') || renderChart(content, semitones, lyricsOnly, variation);
 }
 
-export function renderChart(text: string, semitones: number, lyricsOnly = false): string {
+export function renderChart(text: string, semitones: number, lyricsOnly = false, variation = false): string {
     const sections = parseSections(text);
     const hasHeader = sections.some((section) => section.label !== 'Sección');
     if (!hasHeader) {
-        return renderBody(text, semitones, lyricsOnly);
+        return renderBody(text, semitones, lyricsOnly, variation);
     }
 
     const groups: { label: string; body: string; count: number }[] = [];
@@ -217,7 +271,7 @@ export function renderChart(text: string, semitones: number, lyricsOnly = false)
     }
 
     return groups.map((group, index) => {
-        const body = renderBody(group.body, semitones, lyricsOnly);
+        const body = renderBody(group.body, semitones, lyricsOnly, variation);
         if (group.label === 'Sección') {
             return body;
         }
@@ -226,21 +280,95 @@ export function renderChart(text: string, semitones: number, lyricsOnly = false)
     }).join('');
 }
 
-function renderBody(text: string, semitones: number, lyricsOnly = false): string {
+type MusicKind = 'blank' | 'var-unison' | 'unison' | 'var-chord' | 'chord' | 'mixed' | 'other';
+
+function musicKind(line: string): MusicKind {
+    if (line.trim() === '') {
+        return 'blank';
+    }
+    if (/^\s*\[(?:unisono|unísono)\*\]/i.test(line) || /^\s*\{unisono\*\}/i.test(line)) {
+        return 'var-unison';
+    }
+    if (/^\s*\[(?:unisono|unísono)\]/i.test(line) || /^\s*\{unisono\}/i.test(line)) {
+        return 'unison';
+    }
+    if (!isChordLine(line)) {
+        return 'other';
+    }
+
+    const flags = line.trim().split(/\s+/).map((token) => splitChordToken(token)?.variation === true);
+    if (flags.every(Boolean)) {
+        return 'var-chord';
+    }
+    if (flags.some(Boolean)) {
+        return 'mixed';
+    }
+
+    return 'chord';
+}
+
+function previousMusicKind(lines: string[], index: number): MusicKind | null {
+    for (let cursor = index - 1; cursor >= 0; cursor--) {
+        const kind = musicKind(lines[cursor]);
+        if (kind !== 'blank') {
+            return kind;
+        }
+    }
+
+    return null;
+}
+
+function showMusicLine(lines: string[], index: number, variation: boolean): boolean {
+    const kind = musicKind(lines[index]);
+    if (kind === 'var-unison' || kind === 'var-chord') {
+        return variation;
+    }
+    if (kind === 'mixed') {
+        return true;
+    }
+
+    const previous = previousMusicKind(lines, index);
+    const paired = (kind === 'unison' && previous === 'var-unison') || (kind === 'chord' && previous === 'var-chord');
+    if (paired) {
+        return !variation;
+    }
+
+    return true;
+}
+
+function projectChordLine(line: string, variation: boolean): string {
+    return line.replace(/\S+/g, (token) => {
+        const parts = splitChordToken(token);
+        if (!parts) {
+            return token;
+        }
+        if (parts.variation) {
+            return variation ? `${token.slice(0, -1)} ` : ' '.repeat(token.length);
+        }
+
+        return token;
+    });
+}
+
+function renderBody(text: string, semitones: number, lyricsOnly = false, variation = false): string {
     const transposed = transposeText(text, semitones);
-    const lines = transposed.split('\n');
+    const lines = transposed.split('\n').map((line) => line.trimEnd());
     const out: string[] = [];
     let sectionIndex = 0;
     let pendingUnison = false;
 
-    for (const rawLine of lines) {
-        const line = rawLine.trimEnd();
-        if (line.trim() === '{unisono}') {
+    for (let index = 0; index < lines.length; index++) {
+        const line = lines[index];
+        if (!showMusicLine(lines, index, variation)) {
+            continue;
+        }
+
+        if (line.trim() === '{unisono}' || line.trim() === '{unisono*}') {
             pendingUnison = true;
             continue;
         }
 
-        const writtenUnison = line.match(/^(\s*\[(?:unisono|unísono)\]\s*\{)([^}]*)\}\s*$/i);
+        const writtenUnison = line.match(/^(\s*\[(?:unisono|unísono)\*?\]\s*\{)([^}]*)\}\s*$/i);
         if (writtenUnison) {
             pendingUnison = false;
             if (!lyricsOnly && writtenUnison[2].trim() !== '') {
@@ -249,7 +377,7 @@ function renderBody(text: string, semitones: number, lyricsOnly = false): string
             continue;
         }
 
-        if (/^\s*\[(?:unisono|unísono)\]\s*$/i.test(line)) {
+        if (/^\s*\[(?:unisono|unísono)\*?\]\s*$/i.test(line)) {
             pendingUnison = false;
             continue;
         }
@@ -273,7 +401,7 @@ function renderBody(text: string, semitones: number, lyricsOnly = false): string
             continue;
         }
 
-        const inlineUnison = line.match(/^(\s*\{unisono\})(.*)$/);
+        const inlineUnison = line.match(/^(\s*\{unisono\*?\})(.*)$/);
         if (inlineUnison && inlineUnison[2].trim() !== '') {
             if (!lyricsOnly) {
                 out.push(renderMarkedLine(placedUnison(inlineUnison[1], inlineUnison[2]), UNISON_CLASS));
@@ -283,7 +411,10 @@ function renderBody(text: string, semitones: number, lyricsOnly = false): string
 
         if (isChordLine(line)) {
             if (!lyricsOnly) {
-                out.push(renderMarkedLine(line, CHORD_CLASS));
+                const projected = projectChordLine(line, variation).trimEnd();
+                if (projected.trim() !== '') {
+                    out.push(renderMarkedLine(projected, CHORD_CLASS));
+                }
             }
             continue;
         }

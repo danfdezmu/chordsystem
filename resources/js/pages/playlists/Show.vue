@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { sectionColorClass, sectionHeader } from '@/lib/chart';
+import { findSection, isVariationPlay, parseSections, sectionColorClass, sectionHasVariation, sectionLabels, sectionName, structureChipClass } from '@/lib/chart';
 import { parseStructure, sectionAbbr, serializeStructure } from '@/lib/structure';
 import * as playlists from '@/routes/playlists';
 import * as songs from '@/routes/songs';
@@ -55,6 +55,7 @@ const query = ref('');
 const editingId = ref<number | null>(null);
 const draftKey = ref('');
 const draftChips = ref<string[]>([]);
+const ignoreChipClick = ref(false);
 const dragIndex = ref<number | null>(null);
 
 const shareUrl = computed(() => {
@@ -95,25 +96,11 @@ function orderIsCustom(song: { pivot?: { structure?: string | null } }): boolean
     return Boolean(song.pivot?.structure?.trim());
 }
 
-function sectionsFromContent(content: string): string[] {
-    const labels: string[] = [];
-    const seen = new Set<string>();
-    for (const raw of (content || '').split('\n')) {
-        const label = sectionHeader(raw);
-        if (!label || seen.has(label)) {
-            continue;
-        }
-        seen.add(label);
-        labels.push(label);
-    }
-    return labels;
-}
-
 const editingSong = computed(() =>
     (props.playlist.songs ?? []).find((song: { id: number }) => song.id === editingId.value) ?? null,
 );
 
-const sectionPalette = computed(() => sectionsFromContent(editingSong.value?.content ?? ''));
+const sectionPalette = computed(() => sectionLabels(editingSong.value?.content ?? ''));
 
 const keyChoices = computed(() => {
     const source = editingSong.value?.original_key || draftKey.value;
@@ -137,7 +124,14 @@ function toggleAdjust(song: { id: number; content?: string; original_key: string
 }
 
 function onDragStart(index: number): void {
+    ignoreChipClick.value = true;
     dragIndex.value = index;
+}
+
+function onDragEnd(): void {
+    window.setTimeout(() => {
+        ignoreChipClick.value = false;
+    }, 0);
 }
 
 function onDragOver(event: DragEvent): void {
@@ -159,6 +153,19 @@ function removeChip(index: number): void {
 
 function addChip(label: string): void {
     draftChips.value.push(label);
+}
+
+function chipHasVariation(label: string): boolean {
+    const section = findSection(parseSections(editingSong.value?.content ?? ''), label);
+    return section ? sectionHasVariation(section.body) : false;
+}
+
+function toggleVariation(index: number): void {
+    if (ignoreChipClick.value || !chipHasVariation(draftChips.value[index])) {
+        return;
+    }
+    const name = sectionName(draftChips.value[index]);
+    draftChips.value[index] = isVariationPlay(draftChips.value[index]) ? name : `${name} *`;
 }
 
 async function copyShareLink(): Promise<void> {
@@ -439,13 +446,16 @@ watch(editorQuery, (value) => {
                                             v-for="(chip, index) in draftChips"
                                             :key="`${chip}-${index}`"
                                             draggable="true"
-                                            :class="['flex cursor-move items-center gap-1 rounded-full px-3 py-1 text-sm font-bold', sectionColorClass(chip)]"
+                                            :class="['flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold', chipHasVariation(chip) ? 'cursor-pointer' : 'cursor-move', structureChipClass(chip)]"
+                                            :title="chipHasVariation(chip) ? 'Clic para alternar original y variación' : sectionName(chip)"
+                                            @click="toggleVariation(index)"
                                             @dragstart="onDragStart(index)"
+                                            @dragend="onDragEnd"
                                             @dragover="onDragOver($event)"
                                             @drop="onDrop(index)"
                                         >
-                                            {{ chip }}
-                                            <button type="button" class="ml-1 text-xs opacity-60 hover:opacity-100" @click="removeChip(index)">×</button>
+                                            {{ sectionName(chip) }}
+                                            <button type="button" class="ml-1 text-xs opacity-60 hover:opacity-100" @click.stop="removeChip(index)">×</button>
                                         </span>
                                         <span v-if="draftChips.length === 0" class="text-xs text-muted-foreground">
                                             Sin orden propio. Se usa el de la canción.

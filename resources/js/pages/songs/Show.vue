@@ -3,7 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { Minus, Music, Plus } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { transposeChord } from '@/lib/chords';
-import { groupConsecutiveLabels, parseSections, renderChart, renderStructure, sectionColorClass } from '@/lib/chart';
+import { groupConsecutiveLabels, parseSections, renderChart, renderStructure, structureChipClass } from '@/lib/chart';
 import { parseStructure, sectionAbbr } from '@/lib/structure';
 import PlaylistSongNav from '@/components/PlaylistSongNav.vue';
 import { Button } from '@/components/ui/button';
@@ -47,6 +47,7 @@ const chips = computed(() => {
         return {
             label: group.count > 1 ? `${group.label} x${group.count}` : group.label,
             abbr: sectionAbbr(group.label),
+            variation: group.label.trim().endsWith('*'),
             index,
         };
     });
@@ -80,11 +81,11 @@ function scrollToSection(index: number) {
                 v-for="chip in chips"
                 :key="chip.index"
                 type="button"
-                :class="['flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-xs font-bold hover:opacity-80', sectionColorClass(chip.label)]"
+                :class="['flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-xs font-bold hover:opacity-80', structureChipClass(chip.label, chip.variation)]"
                 :title="chip.label"
                 @click="scrollToSection(chip.index)"
             >
-                {{ chip.abbr }}
+                {{ chip.abbr }}<span v-if="chip.variation">*</span>
             </button>
         </div>
 

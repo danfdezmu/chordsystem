@@ -56,7 +56,7 @@ const content = ref('');
                     <div class="grid gap-2">
                         <Label for="content">Letra y acordes</Label>
                         <p class="text-xs text-muted-foreground">
-                            Escribe cada sección entre corchetes. Los acordes van arriba de la letra, respetando los espacios. El unísono va así: [Unisono] {C D E F G}. Al guardar, esas secciones se pueden ordenar y repetir.
+                            Escribe cada sección entre corchetes. Los acordes van arriba de la letra, respetando los espacios. El unísono va así: [Unisono] {C D E F G}. Para una variación, pon los acordes con asterisco en la línea de arriba, por ejemplo C#m* B*, y el unísono alterno como [Unisono*] {E F#}. Al guardar, esas secciones se pueden ordenar y repetir.
                         </p>
                         <textarea
                             id="content"

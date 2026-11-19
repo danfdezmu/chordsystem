@@ -2,7 +2,7 @@
 import { Form, Head, Link } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import SongController from '@/actions/App/Http/Controllers/SongController';
-import { sectionColorClass, sectionHeader } from '@/lib/chart';
+import { findSection, isVariationPlay, parseSections, sectionColorClass, sectionHasVariation, sectionLabels, sectionName, structureChipClass } from '@/lib/chart';
 import { parseStructure, sectionAbbr, serializeStructure } from '@/lib/structure';
 
 import { Button } from '@/components/ui/button';
@@ -18,17 +18,9 @@ const props = defineProps<{
 const content = ref(props.song.content || '');
 const chips = ref<string[]>(parseStructure(props.song.structure || ''));
 const structure = ref(serializeStructure(chips.value));
+const ignoreChipClick = ref(false);
 
-const availableSections = computed(() => {
-    const labels: string[] = [];
-    for (const raw of (content.value || '').split('\n')) {
-        const label = sectionHeader(raw);
-        if (label && !labels.includes(label)) {
-            labels.push(label);
-        }
-    }
-    return labels;
-});
+const availableSections = computed(() => sectionLabels(content.value || ''));
 
 // initialize chips when structure empty
 watch(content, () => {
@@ -44,7 +36,13 @@ watch(chips, (v) => {
 // drag state
 const dragIndex = ref<number | null>(null);
 function onDragStart(i: number) {
+    ignoreChipClick.value = true;
     dragIndex.value = i;
+}
+function onDragEnd() {
+    window.setTimeout(() => {
+        ignoreChipClick.value = false;
+    }, 0);
 }
 function onDragOver(e: DragEvent, i: number) {
     e.preventDefault();
@@ -60,6 +58,17 @@ function removeChip(i: number) {
 }
 function addChip(label: string) {
     chips.value.push(label);
+}
+function chipHasVariation(label: string): boolean {
+    const section = findSection(parseSections(content.value || ''), label);
+    return section ? sectionHasVariation(section.body) : false;
+}
+function toggleVariation(index: number) {
+    if (ignoreChipClick.value || !chipHasVariation(chips.value[index])) {
+        return;
+    }
+    const name = sectionName(chips.value[index]);
+    chips.value[index] = isVariationPlay(chips.value[index]) ? name : `${name} *`;
 }
 
 defineOptions({
@@ -114,13 +123,16 @@ defineOptions({
                                 v-for="(chip, i) in chips"
                                 :key="i"
                                 draggable="true"
-                                :class="['flex cursor-move items-center gap-1 rounded-full px-3 py-1 text-sm font-bold', sectionColorClass(chip)]"
+                                :class="['flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold', chipHasVariation(chip) ? 'cursor-pointer' : 'cursor-move', structureChipClass(chip)]"
+                                :title="chipHasVariation(chip) ? 'Clic para alternar original y variación' : sectionName(chip)"
+                                @click="toggleVariation(i)"
                                 @dragstart="onDragStart(i)"
+                                @dragend="onDragEnd"
                                 @dragover="onDragOver($event, i)"
                                 @drop="onDrop(i)"
                             >
-                                {{ chip }}
-                                <button type="button" class="ml-1 text-xs opacity-60 hover:opacity-100" @click="removeChip(i)">×</button>
+                                {{ sectionName(chip) }}
+                                <button type="button" class="ml-1 text-xs opacity-60 hover:opacity-100" @click.stop="removeChip(i)">×</button>
                             </span>
                             <span v-if="chips.length === 0" class="text-xs text-muted-foreground">Sin estructura. Se mostrarán todas las secciones en orden.</span>
                         </div>
@@ -143,7 +155,7 @@ defineOptions({
                     <div class="grid gap-2">
                         <Label for="content">Letra y acordes</Label>
                         <p class="text-xs text-muted-foreground">
-                            Escribe cada sección entre corchetes. Los acordes van arriba de la letra, respetando los espacios. El unísono va así: [Unisono] {C D E F G}. Los círculos de arriba salen de esos títulos para ordenarlos o repetirlos.
+                            Escribe cada sección entre corchetes. Los acordes van arriba de la letra, respetando los espacios. El unísono va así: [Unisono] {C D E F G}. Para una variación, pon los acordes con asterisco en la línea de arriba, por ejemplo C#m* B*, y el unísono alterno como [Unisono*] {E F#}. En el orden, un clic sobre esa sección alterna el original y la variación: la variación se ve en color sólido.
                         </p>
                         <textarea
                             id="content"

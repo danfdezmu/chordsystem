@@ -26,13 +26,20 @@ export function isChordToken(tok: string): boolean {
     return /^[A-G][#b]?(m(aj)?|min|dim|aug|sus|add)?[0-9]*(b[0-9]+|#?[0-9]+)?(\+[0-9]+)?(\/[A-G][#b]?)?$/.test(t);
 }
 
-export function splitChordToken(token: string): { chord: string; rest: string } | null {
-    const match = token.match(/^([A-G][^.,;:|]*)([.,;:|]*)$/);
+export function splitChordToken(token: string): { chord: string; rest: string; variation: boolean } | null {
+    let variation = false;
+    let source = token;
+    if (source.endsWith('*')) {
+        variation = true;
+        source = source.slice(0, -1);
+    }
+
+    const match = source.match(/^([A-G][^.,;:|]*)([.,;:|]*)$/);
     if (!match || !isChordToken(match[1])) {
         return null;
     }
 
-    return { chord: match[1], rest: match[2] };
+    return { chord: match[1], rest: match[2], variation };
 }
 
 export function isChordLine(line: string): boolean {
@@ -98,7 +105,9 @@ function transposeAligned(line: string, semitones: number): { line: string; inse
     let match: RegExpExecArray | null;
     while ((match = regex.exec(line)) !== null) {
         const parts = splitChordToken(match[0]);
-        const token = parts ? transposeChord(parts.chord, semitones) + parts.rest : match[0];
+        const token = parts
+            ? transposeChord(parts.chord, semitones) + parts.rest + (parts.variation ? '*' : '')
+            : match[0];
         raw.push({ token, col: match.index });
     }
     if (raw.length === 0) {
@@ -167,7 +176,7 @@ export function transposeText(text: string, semitones: number): string {
             out.push(line);
             continue;
         }
-        const inlineUnison = line.match(/^(\s*\{unisono\})(.*)$/);
+        const inlineUnison = line.match(/^(\s*\{unisono\*?\})(.*)$/);
         if (inlineUnison && inlineUnison[2].trim() !== '') {
             const moved = transposeAligned(inlineUnison[2], semitones);
             out.push(inlineUnison[1] + moved.line);
@@ -177,7 +186,7 @@ export function transposeText(text: string, semitones: number): string {
             }));
             continue;
         }
-        const writtenUnison = line.match(/^(\s*\[(?:unisono|unísono)\]\s*\{)([^}]*)(\}\s*)$/i);
+        const writtenUnison = line.match(/^(\s*\[(?:unisono|unísono)\*?\]\s*\{)([^}]*)(\}\s*)$/i);
         if (writtenUnison) {
             const moved = transposeAligned(writtenUnison[2], semitones);
             out.push(writtenUnison[1] + moved.line + writtenUnison[3]);
