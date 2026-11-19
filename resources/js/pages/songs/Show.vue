@@ -80,7 +80,7 @@ function scrollToSection(index: number) {
                 v-for="chip in chips"
                 :key="chip.index"
                 type="button"
-                :class="['flex size-9 items-center justify-center rounded-full text-sm font-bold hover:opacity-80', sectionColorClass(chip.label)]"
+                :class="['flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-xs font-bold hover:opacity-80', sectionColorClass(chip.label)]"
                 :title="chip.label"
                 @click="scrollToSection(chip.index)"
             >

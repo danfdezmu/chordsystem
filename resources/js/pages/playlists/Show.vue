@@ -456,7 +456,7 @@ watch(editorQuery, (value) => {
                                             v-for="section in sectionPalette"
                                             :key="section"
                                             type="button"
-                                            :class="['flex size-9 items-center justify-center rounded-full text-xs font-bold hover:opacity-80', sectionColorClass(section)]"
+                                            :class="['flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-xs font-bold hover:opacity-80', sectionColorClass(section)]"
                                             :title="`Agregar ${section}`"
                                             @click="addChip(section)"
                                         >

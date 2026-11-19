@@ -130,7 +130,7 @@ defineOptions({
                                 v-for="sec in availableSections"
                                 :key="sec"
                                 type="button"
-                                :class="['flex size-9 items-center justify-center rounded-full text-xs font-bold hover:opacity-80', sectionColorClass(sec)]"
+                                :class="['flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-xs font-bold hover:opacity-80', sectionColorClass(sec)]"
                                 :title="`Agregar ${sec} a la estructura`"
                                 @click="addChip(sec)"
                             >

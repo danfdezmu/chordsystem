@@ -102,7 +102,7 @@ export function sectionColorClass(label: string): string {
     if (l.includes('verso') || l.includes('verse')) return 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300';
     if (l.includes('coro') || l.includes('chorus')) return 'bg-amber-500/15 text-amber-700 dark:text-amber-300';
     if (l.includes('puente') || l.includes('bridge')) return 'bg-purple-500/15 text-purple-700 dark:text-purple-300';
-    if (l.includes('outro') || l.includes('final')) return 'bg-slate-500/15 text-slate-700 dark:text-slate-300';
+    if (l.includes('outro') || l.includes('final') || l.includes('ending')) return 'bg-slate-500/15 text-slate-700 dark:text-slate-300';
     if (l.includes('solo')) return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300';
     if (l.includes('interludio')) return 'bg-teal-500/15 text-teal-700 dark:text-teal-300';
     if (l.includes('espont')) return 'bg-rose-500/15 text-rose-700 dark:text-rose-300';
