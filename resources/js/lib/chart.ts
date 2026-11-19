@@ -98,8 +98,8 @@ function sectionBadge(label: string, count: number, index: number): string {
 
 export function sectionColorClass(label: string): string {
     const l = (label || '').toLowerCase();
-    if (l.includes('intro')) return 'bg-slate-500/15 text-slate-700 dark:text-slate-300';
-    if (l.includes('verso') || l.includes('verse')) return 'bg-blue-500/15 text-blue-700 dark:text-blue-300';
+    if (l.includes('intro')) return 'bg-fuchsia-500/20 text-fuchsia-800 dark:text-fuchsia-300';
+    if (l.includes('verso') || l.includes('verse')) return 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300';
     if (l.includes('coro') || l.includes('chorus')) return 'bg-amber-500/15 text-amber-700 dark:text-amber-300';
     if (l.includes('puente') || l.includes('bridge')) return 'bg-purple-500/15 text-purple-700 dark:text-purple-300';
     if (l.includes('outro') || l.includes('final')) return 'bg-slate-500/15 text-slate-700 dark:text-slate-300';
