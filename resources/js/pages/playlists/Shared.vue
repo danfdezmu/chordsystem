@@ -11,6 +11,21 @@ const props = defineProps<{ playlist: any }>();
 
 const semitones = ref(0);
 const lyricsOnly = ref(false);
+const lyricScale = ref(1);
+
+const chartFontSize = computed(() => {
+    const base = lyricsOnly.value ? 1 : 0.875;
+
+    return `${base * lyricScale.value}rem`;
+});
+
+function enlargeLyrics(): void {
+    lyricScale.value = Math.min(1.75, Number((lyricScale.value + 0.25).toFixed(2)));
+}
+
+function shrinkLyrics(): void {
+    lyricScale.value = Math.max(1, Number((lyricScale.value - 0.25).toFixed(2)));
+}
 const songs = computed(() => props.playlist.songs ?? []);
 const activeId = ref<number | null>(songs.value[0]?.id ?? null);
 
@@ -62,6 +77,12 @@ function goToSong(id: number): void {
                         Solo letra
                     </button>
                 </div>
+                <Button size="sm" variant="outline" title="Achicar letra" :disabled="lyricScale <= 1" @click="shrinkLyrics">
+                    A−
+                </Button>
+                <Button size="sm" variant="outline" title="Agrandar letra" :disabled="lyricScale >= 1.75" @click="enlargeLyrics">
+                    A+
+                </Button>
                 <Button size="icon-sm" variant="outline" @click="semitones--">
                     <Minus class="size-4" />
                 </Button>
@@ -82,8 +103,9 @@ function goToSong(id: number): void {
             </CardHeader>
             <CardContent>
                 <div
-                    class="overflow-x-auto text-sm leading-6 [font-variant-ligatures:none]"
-                    :class="lyricsOnly ? 'font-sans text-base leading-7' : 'font-mono'"
+                    class="overflow-x-auto pt-2 [font-variant-ligatures:none] [line-height:1.7]"
+                    :class="lyricsOnly ? 'font-sans' : 'font-mono'"
+                    :style="{ fontSize: chartFontSize }"
                     v-html="renderPlaylistSong(activeSong, semitones, lyricsOnly)"
                 ></div>
             </CardContent>

@@ -141,3 +141,19 @@
         @apply bg-background text-foreground;
     }
 }
+
+.chord-raise {
+    display: inline-block;
+    position: relative;
+    height: 1em;
+    vertical-align: baseline;
+}
+
+.chord-raise > span {
+    position: absolute;
+    top: -0.28em;
+    left: 0;
+    font-size: 0.62em;
+    line-height: 1;
+    white-space: nowrap;
+}

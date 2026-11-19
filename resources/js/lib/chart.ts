@@ -109,6 +109,44 @@ export function sectionColorClass(label: string): string {
     return 'bg-primary/10 text-primary';
 }
 
+function raiseChordText(text: string): string {
+    if (text === '') {
+        return '';
+    }
+
+    return `<span class="chord-raise" style="width:${text.length}ch"><span>${escapeHtml(text)}</span></span>`;
+}
+
+function formatNoteHtml(note: string): string {
+    const match = note.match(/^([A-G])([#b]?)(.*)$/);
+    if (!match) {
+        return escapeHtml(note);
+    }
+
+    let html = escapeHtml(match[1]);
+    if (match[2] !== '') {
+        html += raiseChordText(match[2]);
+    }
+
+    const rest = match[3];
+    if (rest.startsWith('m') && !rest.startsWith('maj') && !rest.startsWith('min')) {
+        html += 'm' + raiseChordText(rest.slice(1));
+    } else {
+        html += raiseChordText(rest);
+    }
+
+    return html;
+}
+
+function formatChordHtml(chord: string): string {
+    const slash = chord.indexOf('/');
+    if (slash === -1) {
+        return formatNoteHtml(chord);
+    }
+
+    return formatNoteHtml(chord.slice(0, slash)) + '/' + formatNoteHtml(chord.slice(slash + 1));
+}
+
 function renderMarkedLine(line: string, noteClass: string): string {
     const tokens = line.split(/(\s+)/);
     const colored = tokens
@@ -120,7 +158,7 @@ function renderMarkedLine(line: string, noteClass: string): string {
             if (!parts) {
                 return escapeHtml(token);
             }
-            return `<span class="${noteClass}">${escapeHtml(parts.chord)}</span>${escapeHtml(parts.rest)}`;
+            return `<span class="${noteClass}">${formatChordHtml(parts.chord)}</span>${escapeHtml(parts.rest)}`;
         })
         .join('');
 
@@ -265,7 +303,7 @@ function renderBody(text: string, semitones: number, lyricsOnly = false): string
         });
         // Chords [C], [Gm7], etc.
         escaped = escaped.replace(/\[([^\]]+)\]/g, (_m, chord) => {
-            return `<span class="${CHORD_CLASS}">[${escapeHtml(chord)}]</span>`;
+            return `<span class="${CHORD_CLASS}">[${formatChordHtml(chord)}]</span>`;
         });
 
         out.push(`<div class="chart-line whitespace-pre">${escaped || '&nbsp;'}</div>`);

@@ -96,7 +96,7 @@ function goToSong(id: number): void {
             </CardHeader>
             <CardContent>
                 <div
-                    class="overflow-x-auto text-sm leading-6 [font-variant-ligatures:none]"
+                    class="overflow-x-auto pt-2 text-sm leading-6 [font-variant-ligatures:none]"
                     :class="lyricsOnly ? 'font-sans text-base leading-7' : 'font-mono'"
                     v-html="renderPlaylistSong(song, semitones, lyricsOnly)"
                 ></div>
