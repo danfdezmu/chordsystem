@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import { Minus, Plus } from '@lucide/vue';
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import PlaylistSongNav from '@/components/PlaylistSongNav.vue';
-import { observePlaylistSongs, playlistKey, renderPlaylistSong } from '@/lib/playlistSong';
+import { playlistKey, renderPlaylistSong } from '@/lib/playlistSong';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -11,11 +11,11 @@ const props = defineProps<{ playlist: any }>();
 
 const semitones = ref(0);
 const lyricsOnly = ref(false);
-const activeId = ref<number | null>(props.playlist.songs?.[0]?.id ?? null);
-let stopWatching = () => {};
+const songs = computed(() => props.playlist.songs ?? []);
+const activeId = ref<number | null>(songs.value[0]?.id ?? null);
 
 const railSongs = computed(() =>
-    (props.playlist.songs ?? []).map((song) => ({
+    songs.value.map((song) => ({
         id: song.id,
         title: song.title,
         artist: song.artist,
@@ -23,17 +23,13 @@ const railSongs = computed(() =>
     })),
 );
 
-onMounted(() => {
-    stopWatching = observePlaylistSongs((id) => {
-        activeId.value = id;
-    });
+const activeSong = computed(() => {
+    return songs.value.find((song) => song.id === activeId.value) ?? songs.value[0] ?? null;
 });
-
-onUnmounted(() => stopWatching());
 
 function goToSong(id: number): void {
     activeId.value = id;
-    document.getElementById(`playlist-song-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 </script>
 
@@ -77,27 +73,23 @@ function goToSong(id: number): void {
             </div>
         </div>
 
-        <Card
-            v-for="song in playlist.songs"
-            :id="`playlist-song-${song.id}`"
-            :key="song.id"
-            :data-song-id="song.id"
-            class="scroll-mt-24"
-        >
+        <Card v-if="activeSong" :key="activeSong.id">
             <CardHeader>
-                <CardTitle>{{ song.title }}</CardTitle>
+                <CardTitle>{{ activeSong.title }}</CardTitle>
                 <p class="text-sm text-muted-foreground">
-                    Tonalidad: {{ playlistKey(song, semitones) }}
+                    Tonalidad: {{ playlistKey(activeSong, semitones) }}
                 </p>
             </CardHeader>
             <CardContent>
                 <div
                     class="overflow-x-auto text-sm leading-6 [font-variant-ligatures:none]"
                     :class="lyricsOnly ? 'font-sans text-base leading-7' : 'font-mono'"
-                    v-html="renderPlaylistSong(song, semitones, lyricsOnly)"
+                    v-html="renderPlaylistSong(activeSong, semitones, lyricsOnly)"
                 ></div>
             </CardContent>
         </Card>
+
+        <p v-else class="text-muted-foreground">Sin canciones.</p>
         </div>
 
         <PlaylistSongNav
