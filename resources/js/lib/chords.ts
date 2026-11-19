@@ -26,6 +26,21 @@ export function isChordToken(tok: string): boolean {
     return /^[A-G][#b]?(m(aj)?|min|dim|aug|sus|add)?[0-9]*(b[0-9]+|#?[0-9]+)?(\+[0-9]+)?(\/[A-G][#b]?)?$/.test(t);
 }
 
+export function splitChordToken(token: string): { chord: string; rest: string } | null {
+    const match = token.match(/^([A-G][^.,;:|]*)([.,;:|]*)$/);
+    if (!match || !isChordToken(match[1])) {
+        return null;
+    }
+
+    return { chord: match[1], rest: match[2] };
+}
+
+export function isChordLine(line: string): boolean {
+    const tokens = line.trim().split(/\s+/).filter(Boolean);
+
+    return tokens.length > 0 && tokens.every((token) => splitChordToken(token) !== null);
+}
+
 function rootOf(key: string): string {
     const match = key.trim().match(/^([A-G][#b]?)/);
     if (!match) {
@@ -77,30 +92,66 @@ export function transposeChord(chord: string, semitones: number): string {
     return newRoot + suffix + newBass;
 }
 
-function transposeAligned(line: string, semitones: number): string {
-    const items: { token: string; col: number }[] = [];
+function transposeAligned(line: string, semitones: number): { line: string; insertions: { index: number; extra: number }[] } {
+    const raw: { token: string; col: number }[] = [];
     const regex = /\S+/g;
     let match: RegExpExecArray | null;
     while ((match = regex.exec(line)) !== null) {
-        const token = isChordToken(match[0]) ? transposeChord(match[0], semitones) : match[0];
-        items.push({ token, col: match.index });
+        const parts = splitChordToken(match[0]);
+        const token = parts ? transposeChord(parts.chord, semitones) + parts.rest : match[0];
+        raw.push({ token, col: match.index });
     }
-    if (items.length === 0) {
-        return line;
+    if (raw.length === 0) {
+        return { line, insertions: [] };
+    }
+
+    const insertions: { index: number; extra: number }[] = [];
+    const placed: { token: string; col: number }[] = [];
+    let shift = 0;
+    let lastEnd = -1;
+    for (const item of raw) {
+        let col = item.col + shift;
+        if (lastEnd >= 0 && col < lastEnd + 2) {
+            const extra = lastEnd + 2 - col;
+            insertions.push({ index: item.col, extra });
+            col += extra;
+            shift += extra;
+        }
+        placed.push({ token: item.token, col });
+        lastEnd = col + item.token.length - 1;
     }
 
     let width = 0;
-    for (const item of items) {
+    for (const item of placed) {
         width = Math.max(width, item.col + item.token.length);
     }
     const chars: string[] = new Array(width).fill(' ');
-    for (const item of items) {
+    for (const item of placed) {
         for (let i = 0; i < item.token.length; i++) {
             chars[item.col + i] = item.token[i];
         }
     }
 
-    return chars.join('').trimEnd();
+    return { line: chars.join('').trimEnd(), insertions };
+}
+
+function applyInsertions(line: string, insertions: { index: number; extra: number }[]): string {
+    if (insertions.length === 0) {
+        return line;
+    }
+
+    let result = line;
+    let delta = 0;
+    for (const insertion of insertions) {
+        const at = insertion.index + delta;
+        const pad = ' '.repeat(insertion.extra);
+        result = at >= result.length
+            ? result.padEnd(at, ' ') + pad
+            : result.slice(0, at) + pad + result.slice(at);
+        delta += insertion.extra;
+    }
+
+    return result;
 }
 
 export function transposeText(text: string, semitones: number): string {
@@ -108,26 +159,39 @@ export function transposeText(text: string, semitones: number): string {
 
     const lines = text.split('\n');
     const out: string[] = [];
+    let pending: { index: number; extra: number }[] = [];
 
     for (const line of lines) {
-        if (/^\s*\{unisono\}\s*$/.test(line)) {
+        if (line.trim() === '' || /^\s*\[[^\]]+\]\s*$/.test(line) || /^\s*\{unisono\}\s*$/.test(line)) {
+            pending = [];
             out.push(line);
             continue;
         }
         const inlineUnison = line.match(/^(\s*\{unisono\})(.*)$/);
         if (inlineUnison && inlineUnison[2].trim() !== '') {
-            out.push(inlineUnison[1] + transposeAligned(inlineUnison[2], semitones));
+            const moved = transposeAligned(inlineUnison[2], semitones);
+            out.push(inlineUnison[1] + moved.line);
+            pending = moved.insertions.map((insertion) => ({
+                index: insertion.index + inlineUnison[1].length,
+                extra: insertion.extra,
+            }));
             continue;
         }
-        const tokens = line.split(/(\s+)/);
-        const nonSpace = tokens.filter((t) => t.trim() !== '');
-        const allChords = nonSpace.length > 0 && nonSpace.every(isChordToken);
-        if (allChords) {
-            out.push(transposeAligned(line, semitones));
+        const writtenUnison = line.match(/^(\s*\[(?:unisono|unísono)\]\s*\{)([^}]*)(\}\s*)$/i);
+        if (writtenUnison) {
+            const moved = transposeAligned(writtenUnison[2], semitones);
+            out.push(writtenUnison[1] + moved.line + writtenUnison[3]);
+            pending = [];
             continue;
         }
-        // transpose bracketed chords
-        out.push(line.replace(/\[([^\]]+)\]/g, (_m, inner) => {
+        if (isChordLine(line)) {
+            const moved = transposeAligned(applyInsertions(line, pending), semitones);
+            out.push(moved.line);
+            pending = [...pending, ...moved.insertions];
+            continue;
+        }
+        const lyric = applyInsertions(line, pending);
+        out.push(lyric.replace(/\[([^\]]+)\]/g, (_m, inner) => {
             const chord = inner.trim();
             if (isChordToken(chord)) {
                 return '[' + transposeChord(chord, semitones) + ']';

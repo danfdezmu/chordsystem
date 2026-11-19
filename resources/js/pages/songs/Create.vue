@@ -2,7 +2,6 @@
 import { Form, Head, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import SongController from '@/actions/App/Http/Controllers/SongController';
-import SectionEditor from '@/components/SectionEditor.vue';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,14 +19,13 @@ defineOptions({
 });
 
 const content = ref('');
-const originalKey = ref('C');
 
 </script>
 
 <template>
     <Head title="Nueva canción" />
 
-    <div class="flex flex-col gap-4 p-4 max-w-3xl">
+    <div class="flex flex-col gap-4 p-4 max-w-5xl">
         <h1 class="text-2xl font-bold">Nueva canción</h1>
 
         <Card>
@@ -58,10 +56,19 @@ const originalKey = ref('C');
                     <div class="grid gap-2">
                         <Label for="content">Letra y acordes</Label>
                         <p class="text-xs text-muted-foreground">
-                            Cada sección es un bloque. Las notas del unísono van en rojo, encima de los acordes. Separa los bloques con una línea en blanco.
+                            Escribe cada sección entre corchetes. Los acordes van arriba de la letra, respetando los espacios. El unísono va así: [Unisono] {C D E F G}. Al guardar, esas secciones se pueden ordenar y repetir.
                         </p>
-                        <SectionEditor v-model="content" />
-                        <textarea name="content" hidden v-model="content" />
+                        <textarea
+                            id="content"
+                            name="content"
+                            v-model="content"
+                            rows="22"
+                            wrap="off"
+                            spellcheck="false"
+                            required
+                            placeholder="[Intro]&#10;D/F# G Bm A&#10;&#10;[Verso 1]&#10;[Unisono] {C D E F G}&#10;D/F#    G       Bm    A&#10;        Somos tus hijos"
+                            class="border-input placeholder:text-muted-foreground dark:bg-input/30 min-h-80 w-full overflow-auto rounded-md border bg-transparent px-3 py-2 font-mono text-sm leading-6 whitespace-pre shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        />
                     </div>
                     <div class="flex items-center gap-2">
                         <input type="checkbox" id="is_public" name="is_public" value="1" />

@@ -1,4 +1,4 @@
-import { isChordToken, transposeChord, transposeText } from '@/lib/chords';
+import { isChordLine, splitChordToken, transposeText } from '@/lib/chords';
 
 function escapeHtml(s: string): string {
     return s
@@ -16,15 +16,29 @@ const UNISON_CLASS =
 
 export type ParsedSection = { label: string; body: string };
 
+export function sectionHeader(line: string): string | null {
+    const match = line.trim().match(/^\[(.+)\]$/);
+    if (!match) {
+        return null;
+    }
+
+    const label = match[1].trim();
+    if (/^(unisono|unísono)$/i.test(label)) {
+        return null;
+    }
+
+    return label;
+}
+
 export function parseSections(text: string): ParsedSection[] {
     const lines = text.split('\n');
     const result: ParsedSection[] = [];
     let current: ParsedSection | null = null;
     for (const line of lines) {
-        const m = line.trim().match(/^\[(.+)\]$/);
-        if (m) {
+        const label = sectionHeader(line);
+        if (label) {
             if (current) result.push(current);
-            current = { label: m[1], body: '' };
+            current = { label, body: '' };
             continue;
         }
         if (!current) {
@@ -75,10 +89,11 @@ function renderMarkedLine(line: string, noteClass: string): string {
             if (token.trim() === '') {
                 return token;
             }
-            if (!isChordToken(token.trim())) {
+            const parts = splitChordToken(token.trim());
+            if (!parts) {
                 return escapeHtml(token);
             }
-            return `<span class="${noteClass}">${escapeHtml(token)}</span>`;
+            return `<span class="${noteClass}">${escapeHtml(parts.chord)}</span>${escapeHtml(parts.rest)}`;
         })
         .join('');
 
@@ -112,12 +127,26 @@ export function renderChart(text: string, semitones: number, lyricsOnly = false)
             continue;
         }
 
-        const sectionMatch = line.trim().match(/^\[(.+)\]$/);
-        if (sectionMatch) {
+        const writtenUnison = line.match(/^\s*\[(?:unisono|unísono)\]\s*\{([^}]*)\}\s*$/i);
+        if (writtenUnison) {
             pendingUnison = false;
-            const label = escapeHtml(sectionMatch[1]);
+            if (!lyricsOnly && writtenUnison[1].trim() !== '') {
+                out.push(renderMarkedLine(writtenUnison[1], UNISON_CLASS));
+            }
+            continue;
+        }
+
+        if (/^\s*\[(?:unisono|unísono)\]\s*$/i.test(line)) {
+            pendingUnison = false;
+            continue;
+        }
+
+        const header = sectionHeader(line);
+        if (header) {
+            pendingUnison = false;
+            const label = escapeHtml(header);
             out.push(
-                `<div id="section-${sectionIndex}" class="mt-4 mb-1 scroll-mt-20"><span class="inline-block rounded px-2 py-0.5 text-xs font-semibold ${sectionColorClass(sectionMatch[1])}">${label}</span></div>`,
+                `<div id="section-${sectionIndex}" class="mt-4 mb-1 scroll-mt-20"><span class="inline-block rounded px-2 py-0.5 text-xs font-semibold ${sectionColorClass(header)}">${label}</span></div>`,
             );
             sectionIndex++;
             continue;
@@ -139,11 +168,7 @@ export function renderChart(text: string, semitones: number, lyricsOnly = false)
             continue;
         }
 
-        const tokens = line.split(/(\s+)/);
-        const nonSpace = tokens.filter((t) => t.trim() !== '');
-        const allChords = nonSpace.length > 0 && nonSpace.every((t) => isChordToken(t.trim()));
-
-        if (allChords) {
+        if (isChordLine(line)) {
             if (!lyricsOnly) {
                 out.push(renderMarkedLine(line, CHORD_CLASS));
             }

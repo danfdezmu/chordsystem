@@ -2,8 +2,7 @@
 import { Form, Head, Link } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import SongController from '@/actions/App/Http/Controllers/SongController';
-import SectionEditor from '@/components/SectionEditor.vue';
-import { sectionColorClass } from '@/lib/chart';
+import { sectionColorClass, sectionHeader } from '@/lib/chart';
 import { parseStructure, sectionAbbr, serializeStructure } from '@/lib/structure';
 
 import { Button } from '@/components/ui/button';
@@ -22,16 +21,13 @@ const structure = ref(serializeStructure(chips.value));
 
 const availableSections = computed(() => {
     const labels: string[] = [];
-    let cur: string | null = null;
     for (const raw of (content.value || '').split('\n')) {
-        const m = raw.trim().match(/^\[(.+)\]$/);
-        if (m) {
-            if (cur) labels.push(cur);
-            cur = m[1];
+        const label = sectionHeader(raw);
+        if (label && !labels.includes(label)) {
+            labels.push(label);
         }
     }
-    if (cur) labels.push(cur);
-    return labels.length ? labels : [];
+    return labels;
 });
 
 // initialize chips when structure empty
@@ -80,7 +76,7 @@ defineOptions({
 <template>
     <Head title="Editar canción" />
 
-    <div class="flex flex-col gap-4 p-4 max-w-3xl">
+    <div class="flex flex-col gap-4 p-4 max-w-5xl">
         <h1 class="text-2xl font-bold">Editar canción</h1>
 
         <Card>
@@ -147,10 +143,19 @@ defineOptions({
                     <div class="grid gap-2">
                         <Label for="content">Letra y acordes</Label>
                         <p class="text-xs text-muted-foreground">
-                            Cada sección es un bloque. Las notas del unísono van en rojo, encima de los acordes. Separa los bloques con una línea en blanco.
+                            Escribe cada sección entre corchetes. Los acordes van arriba de la letra, respetando los espacios. El unísono va así: [Unisono] {C D E F G}. Los círculos de arriba salen de esos títulos para ordenarlos o repetirlos.
                         </p>
-                        <SectionEditor v-model="content" :key-name="props.song.original_key" :mode="'major'" />
-                        <textarea name="content" hidden v-model="content" />
+                        <textarea
+                            id="content"
+                            name="content"
+                            v-model="content"
+                            rows="22"
+                            wrap="off"
+                            spellcheck="false"
+                            required
+                            placeholder="[Intro]&#10;D/F# G Bm A&#10;&#10;[Verso 1]&#10;[Unisono] {C D E F G}&#10;D/F#    G       Bm    A&#10;        Somos tus hijos"
+                            class="border-input placeholder:text-muted-foreground dark:bg-input/30 min-h-80 w-full overflow-auto rounded-md border bg-transparent px-3 py-2 font-mono text-sm leading-6 whitespace-pre shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        />
                     </div>
                     <div class="flex items-center gap-2">
                         <input type="checkbox" id="is_public" name="is_public" value="1" :checked="song.is_public" />

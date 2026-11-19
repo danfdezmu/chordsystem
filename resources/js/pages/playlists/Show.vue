@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { sectionColorClass } from '@/lib/chart';
+import { sectionColorClass, sectionHeader } from '@/lib/chart';
 import { parseStructure, sectionAbbr, serializeStructure } from '@/lib/structure';
 import * as playlists from '@/routes/playlists';
 import * as songs from '@/routes/songs';
@@ -99,12 +99,12 @@ function sectionsFromContent(content: string): string[] {
     const labels: string[] = [];
     const seen = new Set<string>();
     for (const raw of (content || '').split('\n')) {
-        const match = raw.trim().match(/^\[(.+)\]$/);
-        if (!match || seen.has(match[1])) {
+        const label = sectionHeader(raw);
+        if (!label || seen.has(label)) {
             continue;
         }
-        seen.add(match[1]);
-        labels.push(match[1]);
+        seen.add(label);
+        labels.push(label);
     }
     return labels;
 }

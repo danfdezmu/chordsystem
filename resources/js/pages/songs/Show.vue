@@ -3,7 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { Minus, Music, Plus } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { transposeChord } from '@/lib/chords';
-import { findSection, renderChart, renderSection, sectionColorClass } from '@/lib/chart';
+import { findSection, parseSections, renderChart, renderSection, sectionColorClass } from '@/lib/chart';
 import { parseStructure, sectionAbbr } from '@/lib/structure';
 import PlaylistSongNav from '@/components/PlaylistSongNav.vue';
 import { Button } from '@/components/ui/button';
@@ -35,19 +35,7 @@ const currentKey = computed(() => transposeChord(props.song.original_key, semito
 const rendered = computed(() => {
     const structure = props.song.structure?.trim();
     if (!structure) return renderChart(props.song.content, semitones.value, lyricsOnly.value);
-    const sections: { label: string; body: string }[] = [];
-    let cur: { label: string; body: string } | null = null;
-    for (const raw of (props.song.content || '').split('\n')) {
-        const m = raw.trim().match(/^\[(.+)\]$/);
-        if (m) {
-            if (cur) sections.push(cur);
-            cur = { label: m[1], body: '' };
-        } else {
-            if (!cur) cur = { label: 'Sección', body: '' };
-            cur.body += (cur.body ? '\n' : '') + raw;
-        }
-    }
-    if (cur) sections.push(cur);
+    const sections = parseSections(props.song.content || '');
     const tokens = parseStructure(structure);
     const blocks: string[] = [];
     tokens.forEach((token, index) => {
@@ -61,16 +49,7 @@ const rendered = computed(() => {
 });
 
 const chips = computed(() => {
-    const parsedLabels: string[] = [];
-    let cur: string | null = null;
-    for (const raw of (props.song.content || '').split('\n')) {
-        const m = raw.trim().match(/^\[(.+)\]$/);
-        if (m) {
-            if (cur) parsedLabels.push(cur);
-            cur = m[1];
-        }
-    }
-    if (cur) parsedLabels.push(cur);
+    const parsedLabels = parseSections(props.song.content || '').map((section) => section.label);
     const source = props.song.structure?.trim()
         ? parseStructure(props.song.structure)
         : parsedLabels;
@@ -158,7 +137,7 @@ function scrollToSection(index: number) {
             </CardHeader>
             <CardContent>
                 <div
-                    class="text-sm leading-relaxed"
+                    class="overflow-x-auto text-sm leading-relaxed"
                     :class="lyricsOnly ? 'font-sans text-base leading-7' : 'font-mono'"
                     v-html="rendered"
                 ></div>
