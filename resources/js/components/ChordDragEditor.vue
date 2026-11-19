@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { isChordToken } from '@/lib/chords';
+import { isChordToken, normalizeChordSymbol } from '@/lib/chords';
 
 const props = defineProps<{ modelValue: string; keyName?: string; mode?: 'major' | 'minor' }>();
 const emit = defineEmits<{ (e: 'update:modelValue', v: string): void }>();
@@ -117,6 +117,18 @@ const rows = ref<Row[]>(parseBody(props.modelValue || ''));
 const extraChords = ref<string[]>([]);
 const extraNotes = ref<string[]>([]);
 const drag = ref<DragState | null>(null);
+const CLICK_SLOP = 4;
+
+type PalettePress = {
+    chord: string;
+    label: string;
+    track: Track;
+    row: number;
+    x: number;
+    y: number;
+};
+
+const palettePress = ref<PalettePress | null>(null);
 
 watch(rows, (v) => {
     emit('update:modelValue', serialize(v));
@@ -285,8 +297,82 @@ function onPointerUp(event: PointerEvent) {
     placeItem(payload);
 }
 
-function beginDrag(event: PointerEvent, chord: string, label = chord, track: Track = 'chord', from?: { row: number; index: number; track: Track }) {
+function nextColumn(items: ChordItem[]): number {
+    if (items.length === 0) {
+        return 0;
+    }
+
+    return Math.max(...items.map((item) => item.col + item.chord.length)) + 1;
+}
+
+function appendItem(rowIdx: number, chord: string, track: Track): void {
+    const row = rows.value[rowIdx];
+    if (!row || row.lyrics.trim() !== '') {
+        return;
+    }
+
+    const list = trackItems(row, track);
+    list.push({ chord, col: nextColumn(list) });
+    list.sort((a, b) => a.col - b.col);
+}
+
+function removePaletteListeners(): void {
+    window.removeEventListener('pointermove', onPalettePointerMove);
+    window.removeEventListener('pointerup', onPalettePointerUp);
+    window.removeEventListener('pointercancel', onPalettePointerUp);
+}
+
+function onPalettePointerMove(event: PointerEvent): void {
+    const press = palettePress.value;
+    if (!press) {
+        return;
+    }
+
+    const dx = event.clientX - press.x;
+    const dy = event.clientY - press.y;
+    if (dx * dx + dy * dy < CLICK_SLOP * CLICK_SLOP) {
+        return;
+    }
+
+    palettePress.value = null;
+    removePaletteListeners();
+    beginDrag(event, press.chord, press.label, press.track, undefined, true);
+    updateOver(event);
+}
+
+function onPalettePointerUp(): void {
+    const press = palettePress.value;
+    palettePress.value = null;
+    removePaletteListeners();
+    if (!press) {
+        return;
+    }
+
+    appendItem(press.row, press.chord, press.track);
+}
+
+function onPalettePointerDown(event: PointerEvent, rowIdx: number, chord: string, label: string, track: Track): void {
     if (event.button !== 0 || !chord.trim()) {
+        return;
+    }
+
+    event.preventDefault();
+    palettePress.value = {
+        chord: chord.trim(),
+        label: label.trim() || chord.trim(),
+        track,
+        row: rowIdx,
+        x: event.clientX,
+        y: event.clientY,
+    };
+    window.addEventListener('pointermove', onPalettePointerMove);
+    window.addEventListener('pointerup', onPalettePointerUp);
+    window.addEventListener('pointercancel', onPalettePointerUp);
+}
+
+function beginDrag(event: PointerEvent, chord: string, label = chord, track: Track = 'chord', from?: { row: number; index: number; track: Track }, force = false) {
+    const pressed = force || (event.type === 'pointerdown' ? event.button === 0 : (event.buttons & 1) === 1);
+    if (!pressed || !chord.trim()) {
         return;
     }
     event.preventDefault();
@@ -372,6 +458,19 @@ function extraChord(rowIdx: number): string {
     return extraChords.value[rowIdx] ?? '';
 }
 
+function typedChord(rowIdx: number): string {
+    return normalizeChordSymbol(extraChord(rowIdx));
+}
+
+function addTypedChord(rowIdx: number): void {
+    const chord = typedChord(rowIdx);
+    if (!isChordToken(chord)) {
+        return;
+    }
+
+    appendItem(rowIdx, chord, 'chord');
+}
+
 function setExtraChord(rowIdx: number, value: string | number) {
     extraChords.value[rowIdx] = String(value);
 }
@@ -395,13 +494,16 @@ function removeRow(i: number) {
     if (rows.value.length === 0) rows.value.push(emptyRow());
 }
 
-onBeforeUnmount(releaseDrag);
+onBeforeUnmount(() => {
+    releaseDrag();
+    removePaletteListeners();
+});
 </script>
 
 <template>
     <div class="space-y-3">
         <p class="text-xs text-muted-foreground">
-            Arrastra un grado o una nota del unísono sobre la letra exacta. La zona punteada sigue después de la letra para colocar arreglos más adelante. Al subir o bajar el tono, acordes y unísono se mueven juntos.
+            Si la parte no tiene letra, haz clic en un grado para agregarlo. Arrástralo cuando quieras colocarlo sobre una palabra. También puedes escribir un acorde con bajo, como D/F#. Al subir o bajar el tono, acordes y unísono se mueven juntos.
         </p>
         <div v-for="(row, ri) in rows" :key="ri" class="space-y-2 rounded-md border p-3">
             <div class="flex flex-wrap items-center gap-1">
@@ -410,25 +512,29 @@ onBeforeUnmount(releaseDrag);
                     :key="d.roman"
                     type="button"
                     class="flex h-7 cursor-grab touch-none items-center justify-center rounded-full bg-primary/10 px-2 text-xs font-bold text-primary select-none hover:bg-primary/20 active:cursor-grabbing"
-                    :title="`Arrastra ${d.roman} (${d.chord}) sobre la letra`"
-                    @pointerdown="beginDrag($event, d.chord, d.roman, 'chord')"
+                    :title="`Clic para agregar ${d.roman} (${d.chord}) si no hay letra. Arrastra para colocarlo sobre una palabra.`"
+                    @pointerdown="onPalettePointerDown($event, ri, d.chord, d.roman, 'chord')"
                 >
                     {{ d.roman }}
                 </button>
                 <Input
                     :model-value="extraChord(ri)"
                     class="h-7 w-28 text-xs"
-                    placeholder="Otro acorde"
+                    placeholder="D/F#"
                     @update:model-value="setExtraChord(ri, $event)"
+                    @keydown.enter.prevent="addTypedChord(ri)"
                 />
                 <span
-                    v-if="extraChord(ri).trim()"
+                    v-if="isChordToken(typedChord(ri))"
                     class="inline-flex h-7 cursor-grab touch-none items-center rounded-full bg-muted px-2 text-xs font-bold select-none active:cursor-grabbing"
-                    :title="`Arrastra ${extraChord(ri).trim()} sobre la letra`"
-                    @pointerdown="beginDrag($event, extraChord(ri), extraChord(ri), 'chord')"
+                    :title="`Clic para agregar ${typedChord(ri)} si no hay letra. Arrastra para colocarlo sobre una palabra.`"
+                    @pointerdown="onPalettePointerDown($event, ri, typedChord(ri), typedChord(ri), 'chord')"
                 >
-                    {{ extraChord(ri).trim() }}
+                    {{ typedChord(ri) }}
                 </span>
+                <p v-else-if="extraChord(ri).trim()" class="basis-full text-xs text-destructive">
+                    Ese acorde no se reconoce. Prueba D/F#.
+                </p>
             </div>
             <div class="flex flex-wrap items-center gap-1">
                 <span class="mr-1 text-xs text-muted-foreground">Unísono</span>
@@ -533,7 +639,7 @@ onBeforeUnmount(releaseDrag);
                         >{{ cell.ch }}</span>
                     </div>
                     <p v-if="!row.lyrics" class="mt-1 text-xs text-muted-foreground">
-                        Escribe la letra, o suelta notas en la zona punteada.
+                        Sin letra: haz clic en un grado o en un acorde como D/F# para agregarlo.
                     </p>
                 </div>
             </div>

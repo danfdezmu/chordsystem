@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { sectionColorClass } from '@/lib/chart';
+import { parseStructure, sectionAbbr, serializeStructure } from '@/lib/structure';
 import * as playlists from '@/routes/playlists';
 import * as songs from '@/routes/songs';
 import * as playlistEditors from '@/routes/playlists/editors';
@@ -108,12 +109,6 @@ function sectionsFromContent(content: string): string[] {
     return labels;
 }
 
-function sectionAbbr(label: string): string {
-    const number = label.match(/(\d+)/);
-    const letter = label.replace(/[^a-zA-ZáéíóúñÁÉÍÓÚÑ]/g, '').charAt(0).toUpperCase();
-    return (letter || label.charAt(0).toUpperCase()) + (number ? number[1] : '');
-}
-
 const editingSong = computed(() =>
     (props.playlist.songs ?? []).find((song: { id: number }) => song.id === editingId.value) ?? null,
 );
@@ -129,7 +124,7 @@ const keyChoices = computed(() => {
     return choices;
 });
 
-const draftStructure = computed(() => draftChips.value.join(' '));
+const draftStructure = computed(() => serializeStructure(draftChips.value));
 
 function toggleAdjust(song: { id: number; content?: string; original_key: string; structure?: string | null; pivot?: { key_override?: string | null; structure?: string | null } }): void {
     if (editingId.value === song.id) {
@@ -138,7 +133,7 @@ function toggleAdjust(song: { id: number; content?: string; original_key: string
     }
     editingId.value = song.id;
     draftKey.value = songKey(song);
-    draftChips.value = songOrder(song).split(/[\s,]+/).filter(Boolean);
+    draftChips.value = parseStructure(songOrder(song));
 }
 
 function onDragStart(index: number): void {

@@ -4,6 +4,7 @@ import { Minus, Music, Plus } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { transposeChord } from '@/lib/chords';
 import { findSection, renderChart, renderSection, sectionColorClass } from '@/lib/chart';
+import { parseStructure, sectionAbbr } from '@/lib/structure';
 import PlaylistSongNav from '@/components/PlaylistSongNav.vue';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,7 +48,7 @@ const rendered = computed(() => {
         }
     }
     if (cur) sections.push(cur);
-    const tokens = structure.split(/[\s,]+/).filter(Boolean);
+    const tokens = parseStructure(structure);
     const blocks: string[] = [];
     tokens.forEach((token, index) => {
         const sec = findSection(sections, token);
@@ -71,13 +72,10 @@ const chips = computed(() => {
     }
     if (cur) parsedLabels.push(cur);
     const source = props.song.structure?.trim()
-        ? props.song.structure.trim().split(/[\s,]+/).filter(Boolean)
+        ? parseStructure(props.song.structure)
         : parsedLabels;
     return source.map((token: string, index: number) => {
-        const number = token.match(/(\d+)/);
-        const letter = token.replace(/[^a-zA-ZáéíóúñÁÉÍÓÚÑ]/g, '').charAt(0).toUpperCase();
-        const abbr = (letter || token.charAt(0).toUpperCase()) + (number ? number[1] : '');
-        return { label: token, abbr, index };
+        return { label: token, abbr: sectionAbbr(token), index };
     });
 });
 

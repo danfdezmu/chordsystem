@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue';
 import SongController from '@/actions/App/Http/Controllers/SongController';
 import SectionEditor from '@/components/SectionEditor.vue';
 import { sectionColorClass } from '@/lib/chart';
+import { parseStructure, sectionAbbr, serializeStructure } from '@/lib/structure';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,13 +17,8 @@ const props = defineProps<{
 }>();
 
 const content = ref(props.song.content || '');
-const structure = ref(props.song.structure || '');
-const chips = ref<string[]>(
-    (props.song.structure || '')
-        .trim()
-        .split(/[\s,]+/)
-        .filter(Boolean),
-);
+const chips = ref<string[]>(parseStructure(props.song.structure || ''));
+const structure = ref(serializeStructure(chips.value));
 
 const availableSections = computed(() => {
     const labels: string[] = [];
@@ -46,7 +42,7 @@ watch(content, () => {
 });
 
 watch(chips, (v) => {
-    structure.value = v.join(' ');
+    structure.value = serializeStructure(v);
 }, { deep: true });
 
 // drag state
@@ -142,7 +138,7 @@ defineOptions({
                                 :title="`Agregar ${sec} a la estructura`"
                                 @click="addChip(sec)"
                             >
-                                {{ sec.replace(/[^a-zA-Z]/g, '').charAt(0).toUpperCase() }}{{ sec.match(/\d/)?.[0] || '' }}
+                                {{ sectionAbbr(sec) }}
                             </button>
                         </div>
                         <input type="hidden" name="structure" :value="structure" />

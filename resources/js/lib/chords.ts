@@ -10,11 +10,19 @@ function normalizeRoot(root: string): string {
 
 const CHORD_TOKEN_RE = /^[A-G][#b]?(m|maj|min|dim|aug|sus|add|7|9|11|13|6|4|2|5|b|#|\+|-|°|ø)* (\/[A-G][#b]?)?$/;
 
+export function normalizeChordSymbol(value: string): string {
+    return value
+        .trim()
+        .replace(/\s*\/\s*/g, '/')
+        .replace(/(^|\/)([A-Ga-g])([#b]?)/g, (_match, slash: string, letter: string, accidental: string) => {
+            return slash + letter.toUpperCase() + accidental;
+        });
+}
+
 export function isChordToken(tok: string): boolean {
-    const t = tok.trim();
+    const t = normalizeChordSymbol(tok);
     if (!t) return false;
     if (!/^[A-G]/.test(t)) return false;
-    // strip suffixes
     return /^[A-G][#b]?(m(aj)?|min|dim|aug|sus|add)?[0-9]*(b[0-9]+|#?[0-9]+)?(\+[0-9]+)?(\/[A-G][#b]?)?$/.test(t);
 }
 

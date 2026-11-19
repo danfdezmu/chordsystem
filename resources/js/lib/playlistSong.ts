@@ -1,4 +1,5 @@
 import { findSection, parseSections, renderChart, renderSection, sectionColorClass } from '@/lib/chart';
+import { parseStructure } from '@/lib/structure';
 import { semitonesBetween, transposeChord } from '@/lib/chords';
 
 type PlaylistSong = {
@@ -66,7 +67,7 @@ export function renderPlaylistSong(song: PlaylistSong, extraSemitones = 0): stri
     }
 
     const sections = parseSections(content);
-    const tokens = structure.split(/[\s,]+/).filter(Boolean);
+    const tokens = parseStructure(structure);
     const blocks = tokens.map((token) => {
         const section = findSection(sections, token);
         const label = escapeHtml(token);
