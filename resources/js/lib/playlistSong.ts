@@ -1,4 +1,4 @@
-import { findSection, parseSections, renderChart, renderSection, sectionColorClass } from '@/lib/chart';
+import { renderChart, renderStructure } from '@/lib/chart';
 import { parseStructure } from '@/lib/structure';
 import { semitonesBetween, transposeChord } from '@/lib/chords';
 
@@ -11,13 +11,6 @@ type PlaylistSong = {
         structure?: string | null;
     } | null;
 };
-
-function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-}
 
 export function playlistKey(song: PlaylistSong, extraSemitones = 0): string {
     const base = song.pivot?.key_override?.trim() || song.original_key;
@@ -66,16 +59,5 @@ export function renderPlaylistSong(song: PlaylistSong, extraSemitones = 0): stri
         return renderChart(content, steps);
     }
 
-    const sections = parseSections(content);
-    const tokens = parseStructure(structure);
-    const blocks = tokens.map((token) => {
-        const section = findSection(sections, token);
-        const label = escapeHtml(token);
-        if (!section) {
-            return `<div class="mt-3 mb-1"><span class="inline-block rounded px-2 py-0.5 text-xs font-semibold bg-rose-500/15 text-rose-700 dark:text-rose-300">${label} (no encontrado)</span></div>`;
-        }
-        return `<div class="mt-3 mb-1"><span class="inline-block rounded px-2 py-0.5 text-xs font-semibold ${sectionColorClass(token)}">${label}</span></div>${renderSection(section.body, steps)}`;
-    });
-
-    return blocks.join('') || renderChart(content, steps);
+    return renderStructure(content, parseStructure(structure), steps);
 }

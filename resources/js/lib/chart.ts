@@ -63,7 +63,37 @@ export function findSection(sections: ParsedSection[], token: string): ParsedSec
 }
 
 export function renderSection(body: string, semitones: number, lyricsOnly = false): string {
-    return renderChart(body, semitones, lyricsOnly);
+    return renderBody(body, semitones, lyricsOnly);
+}
+
+const REPEAT_CLASS =
+    'ml-1 inline-block rounded px-1.5 py-0.5 text-xs font-bold text-amber-700 bg-amber-400/30 dark:text-amber-300';
+
+export function groupConsecutiveLabels(labels: string[]): { label: string; count: number }[] {
+    const groups: { label: string; count: number }[] = [];
+
+    for (const label of labels) {
+        const last = groups[groups.length - 1];
+        if (last && normalizeLabel(last.label) === normalizeLabel(label)) {
+            last.count += 1;
+            continue;
+        }
+        groups.push({ label, count: 1 });
+    }
+
+    return groups;
+}
+
+function repeatBadge(count: number): string {
+    if (count < 2) {
+        return '';
+    }
+
+    return `<span class="${REPEAT_CLASS}">x${count}</span>`;
+}
+
+function sectionBadge(label: string, count: number, index: number): string {
+    return `<div id="section-${index}" class="mt-4 mb-1 scroll-mt-20"><span class="inline-block rounded px-2 py-0.5 text-xs font-semibold ${sectionColorClass(label)}">${escapeHtml(label)}</span>${repeatBadge(count)}</div>`;
 }
 
 export function sectionColorClass(label: string): string {
@@ -110,7 +140,51 @@ function renderLyricLine(line: string): string {
     return `<div class="chart-line">${escapeHtml(text)}</div>`;
 }
 
+export function renderStructure(content: string, tokens: string[], semitones: number, lyricsOnly = false): string {
+    const sections = parseSections(content);
+    const groups = groupConsecutiveLabels(tokens);
+    const blocks = groups.map((group, index) => {
+        const section = findSection(sections, group.label);
+        if (!section) {
+            return `<div id="section-${index}" class="mt-4 mb-1 scroll-mt-20"><span class="inline-block rounded px-2 py-0.5 text-xs font-semibold bg-rose-500/15 text-rose-700 dark:text-rose-300">${escapeHtml(group.label)} (no encontrado)</span></div>`;
+        }
+
+        return sectionBadge(group.label, group.count, index) + renderSection(section.body, semitones, lyricsOnly);
+    });
+
+    return blocks.join('') || renderChart(content, semitones, lyricsOnly);
+}
+
 export function renderChart(text: string, semitones: number, lyricsOnly = false): string {
+    const sections = parseSections(text);
+    const hasHeader = sections.some((section) => section.label !== 'Sección');
+    if (!hasHeader) {
+        return renderBody(text, semitones, lyricsOnly);
+    }
+
+    const groups: { label: string; body: string; count: number }[] = [];
+    for (const section of sections) {
+        const last = groups[groups.length - 1];
+        const sameLabel = last && normalizeLabel(last.label) === normalizeLabel(section.label);
+        const sameBody = last && last.body.trim() === section.body.trim();
+        if (last && sameLabel && sameBody) {
+            last.count += 1;
+            continue;
+        }
+        groups.push({ label: section.label, body: section.body, count: 1 });
+    }
+
+    return groups.map((group, index) => {
+        const body = renderBody(group.body, semitones, lyricsOnly);
+        if (group.label === 'Sección') {
+            return body;
+        }
+
+        return sectionBadge(group.label, group.count, index) + body;
+    }).join('');
+}
+
+function renderBody(text: string, semitones: number, lyricsOnly = false): string {
     const transposed = transposeText(text, semitones);
     const lines = transposed.split('\n');
     const out: string[] = [];

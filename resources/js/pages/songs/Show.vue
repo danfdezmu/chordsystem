@@ -3,7 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { Minus, Music, Plus } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { transposeChord } from '@/lib/chords';
-import { findSection, parseSections, renderChart, renderSection, sectionColorClass } from '@/lib/chart';
+import { groupConsecutiveLabels, parseSections, renderChart, renderStructure, sectionColorClass } from '@/lib/chart';
 import { parseStructure, sectionAbbr } from '@/lib/structure';
 import PlaylistSongNav from '@/components/PlaylistSongNav.vue';
 import { Button } from '@/components/ui/button';
@@ -35,17 +35,7 @@ const currentKey = computed(() => transposeChord(props.song.original_key, semito
 const rendered = computed(() => {
     const structure = props.song.structure?.trim();
     if (!structure) return renderChart(props.song.content, semitones.value, lyricsOnly.value);
-    const sections = parseSections(props.song.content || '');
-    const tokens = parseStructure(structure);
-    const blocks: string[] = [];
-    tokens.forEach((token, index) => {
-        const sec = findSection(sections, token);
-        if (sec) {
-            const label = token.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            blocks.push(`<div id="section-${index}" class="mt-4 mb-1 scroll-mt-20"><span class="inline-block rounded px-2 py-0.5 text-xs font-semibold bg-slate-500/15 text-slate-700 dark:text-slate-300">${label}</span></div>` + renderSection(sec.body, semitones.value, lyricsOnly.value));
-        }
-    });
-    return blocks.join('') || renderChart(props.song.content, semitones.value, lyricsOnly.value);
+    return renderStructure(props.song.content || '', parseStructure(structure), semitones.value, lyricsOnly.value);
 });
 
 const chips = computed(() => {
@@ -53,8 +43,12 @@ const chips = computed(() => {
     const source = props.song.structure?.trim()
         ? parseStructure(props.song.structure)
         : parsedLabels;
-    return source.map((token: string, index: number) => {
-        return { label: token, abbr: sectionAbbr(token), index };
+    return groupConsecutiveLabels(source).map((group, index) => {
+        return {
+            label: group.count > 1 ? `${group.label} x${group.count}` : group.label,
+            abbr: sectionAbbr(group.label),
+            index,
+        };
     });
 });
 
