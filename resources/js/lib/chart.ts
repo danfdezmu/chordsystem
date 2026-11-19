@@ -308,7 +308,15 @@ function musicKind(line: string): MusicKind {
 }
 
 function previousMusicKind(lines: string[], index: number): MusicKind | null {
-    for (let cursor = index - 1; cursor >= 0; cursor--) {
+    return adjacentMusicKind(lines, index, -1);
+}
+
+function nextMusicKind(lines: string[], index: number): MusicKind | null {
+    return adjacentMusicKind(lines, index, 1);
+}
+
+function adjacentMusicKind(lines: string[], index: number, direction: -1 | 1): MusicKind | null {
+    for (let cursor = index + direction; cursor >= 0 && cursor < lines.length; cursor += direction) {
         const kind = musicKind(lines[cursor]);
         if (kind !== 'blank') {
             return kind;
@@ -331,6 +339,10 @@ function showMusicLine(lines: string[], index: number, variation: boolean): bool
     const paired = (kind === 'unison' && previous === 'var-unison') || (kind === 'chord' && previous === 'var-chord');
     if (paired) {
         return !variation;
+    }
+
+    if (kind === 'unison' && variation && nextMusicKind(lines, index) === 'var-chord') {
+        return false;
     }
 
     return true;
