@@ -40,7 +40,7 @@ function goToSong(id: number): void {
 <template>
     <Head :title="playlist.name" />
 
-    <div class="flex flex-col gap-4 p-4 lg:flex-row lg:items-start">
+    <div class="flex min-h-svh flex-col gap-4 bg-background p-4 lg:flex-row lg:items-start">
         <div class="flex min-w-0 flex-1 flex-col gap-4">
         <div class="flex flex-wrap items-center justify-between gap-2">
             <div>
