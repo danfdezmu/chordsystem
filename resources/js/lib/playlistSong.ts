@@ -51,13 +51,13 @@ export function observePlaylistSongs(onChange: (id: number) => void): () => void
     return () => observer.disconnect();
 }
 
-export function renderPlaylistSong(song: PlaylistSong, extraSemitones = 0): string {
+export function renderPlaylistSong(song: PlaylistSong, extraSemitones = 0, lyricsOnly = false): string {
     const steps = playlistSemitones(song, extraSemitones);
     const content = song.content ?? '';
     const structure = playlistStructure(song);
     if (!structure) {
-        return renderChart(content, steps);
+        return renderChart(content, steps, lyricsOnly);
     }
 
-    return renderStructure(content, parseStructure(structure), steps);
+    return renderStructure(content, parseStructure(structure), steps, lyricsOnly);
 }
