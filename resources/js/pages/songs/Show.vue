@@ -137,7 +137,7 @@ function scrollToSection(index: number) {
             </CardHeader>
             <CardContent>
                 <div
-                    class="overflow-x-auto text-sm leading-relaxed"
+                    class="overflow-x-auto text-sm leading-6 [font-variant-ligatures:none]"
                     :class="lyricsOnly ? 'font-sans text-base leading-7' : 'font-mono'"
                     v-html="rendered"
                 ></div>

@@ -7,12 +7,9 @@ function escapeHtml(s: string): string {
         .replace(/>/g, '&gt;');
 }
 
-const CHORD_CLASS =
-    'inline-block rounded px-1 font-bold text-blue-600 dark:text-blue-400';
-const ADORNMENT_CLASS =
-    'inline-block rounded px-1 font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10';
-const UNISON_CLASS =
-    'inline-block rounded px-1 font-semibold text-red-600 dark:text-red-400';
+const CHORD_CLASS = 'text-blue-600 dark:text-blue-400';
+const ADORNMENT_CLASS = 'text-emerald-600 dark:text-emerald-400';
+const UNISON_CLASS = 'text-red-600 dark:text-red-400';
 
 export type ParsedSection = { label: string; body: string };
 

@@ -76,7 +76,7 @@ function goToSong(id: number): void {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div class="overflow-x-auto font-mono text-sm leading-relaxed" v-html="renderPlaylistSong(song, semitones)"></div>
+                <div class="overflow-x-auto font-mono text-sm leading-6 [font-variant-ligatures:none]" v-html="renderPlaylistSong(song, semitones)"></div>
             </CardContent>
         </Card>
 
